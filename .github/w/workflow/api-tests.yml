@@ -1,0 +1,79 @@
+name: API Tests
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+
+jobs:
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Get the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Start the API
+      - name: Start API
+        run: |
+          npm run start > api.log 2>&1 &
+          echo $! > api.pid
+
+      # 5. Wait for API to become available
+      - name: Wait for API
+        run: |
+          echo "Waiting for API..."
+
+          for i in {1..30}; do
+            if curl --fail --silent http://localhost:3000/health > /dev/null; then
+              echo "API is ready!"
+              exit 0
+            fi
+
+            echo "API not ready yet..."
+            sleep 2
+          done
+
+          echo "API failed to start"
+          cat api.log
+          exit 1
+
+      # 6. Run API tests
+      - name: Run tests
+        run: npm test
+
+      # 7. Show API logs if something fails
+      - name: Upload API logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-logs
+          path: api.log
+
+      # 8. Stop API
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f api.pid ]; then
+            kill $(cat api.pid) || true
+          fi
