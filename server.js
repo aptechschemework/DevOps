@@ -13,10 +13,8 @@ let users = [
 ];
 
 // Get all users
-// TEMPORARY BUG: status 500 intentionally added
-// to make API tests fail.
 app.get("/users", (req, res) => {
-  res.status(500).json(users);
+  res.status(200).json(users);
 });
 
 // Get user by ID
